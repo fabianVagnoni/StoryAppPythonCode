@@ -4,18 +4,25 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ImageGenerator = void 0;
 class ImageGenerator {
     constructor() { }
-    async call(context, client, verbose) {
+    async call(context, client, end, verbose) {
         // This method returns the URL of an image inspired by the story
-        const summary = await this.summarizer(context, client);
+        const summary = await this.summarizer(context, client, end);
         if (verbose) {
             console.log(`\nSummary: ${summary}\n\n`);
         }
-        const imageUrl = await this.drawer(summary, client);
-        return imageUrl;
+        const imageUrl = await this.drawer(context, client, end);
+        let image_gen_dict = { 'summary': summary, 'image_url': imageUrl, 'end': end };
+        return image_gen_dict;
     }
-    async summarizer(context, client) {
+    async summarizer(context, client, end) {
         // This method summarizes the story
-        const message = `This is the start of an interactive story for which the reader has already taken some choices:\n${context}\nPlease, summarize the text in the story in a minimum of 5 lines and a maximum of 5.`;
+        let message;
+        if (end) {
+            message = `This is an interactive story for which the reader has already taken some choices:\n${context}\nPlease, summarize the text in the story in a minimum of 5 lines and a maximum of 10.`;
+        }
+        else {
+            message = `This is the start of an interactive story for which the reader has not taken any choice:\n${context}\nPlease, summarize the text in the story in a minimum of 5 lines and a maximum of 10.`;
+        }
         const completion = await client.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
@@ -25,8 +32,14 @@ class ImageGenerator {
         });
         return String(completion.choices[0].message.content);
     }
-    async drawer(context, client) {
-        const message = `This is the summary of an interactive story:\n${context}\nPlease, generate an image that represents this story and do not include any text in it.`;
+    async drawer(context, client, end) {
+        let message;
+        if (end) {
+            message = `This is an interactive story for which the user has taken some choices:\n${context}\nPlease, generate an image that represents this story and do not include any text in it.`;
+        }
+        else {
+            message = `This is the start of an interactive story:\n${context}\nPlease, generate an image that represents this story and do not include any text in it.`;
+        }
         const response = await client.images.generate({
             model: "dall-e-3",
             prompt: message,
